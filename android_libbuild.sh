@@ -76,16 +76,21 @@ echo ""
 echo "=> Building tflite c library <============================================="
 echo ""
 
-mkdir -p ${PROJECT_ROOT}/tmp
-
-CODE_DIR=${PROJECT_ROOT}/tmp/tensorflow
-PATCHFILE=${PROJECT_ROOT}/patches/tf_logging.patch
-BUILD_DIR=${PROJECT_ROOT}/tmp/build
+if [ -z "$OUT_DIR" ]; then
+    OUTPUT_DIR=${PROJECT_ROOT}/tmp/output
+    mkdir -p ${OUTPUT_DIR}
+    BUILD_DIR=${PROJECT_ROOT}/tmp/build
+    CODE_DIR=${PROJECT_ROOT}/tmp/tensorflow
+else
+    OUTPUT_DIR=${OUT_DIR}
+    BUILD_DIR=${OUT_DIR}/tmp/build
+    CODE_DIR=${OUT_DIR}/tmp/tensorflow
+fi
 mkdir -p ${BUILD_DIR}
 
 echo " Using code directory: ${CODE_DIR}"
 echo " Using build directory: ${BUILD_DIR}"
-echo " Using patch file: ${PATCHFILE}"
+echo " Using output directory: ${OUTPUT_DIR}"
 
 # Checkout source code
 if [ ! -d ${CODE_DIR} ]; then
@@ -95,8 +100,8 @@ if [ ! -d ${CODE_DIR} ]; then
     cp -r ${PROJECT_ROOT}/submodules/tensorflow/ ${CODE_DIR}
 fi
 
+# Setup up make
 cd ${BUILD_DIR}
-
 cmake -S ${CODE_DIR}/tensorflow/lite \
     -DCMAKE_TOOLCHAIN_FILE=${ANDROID_TOOLCHAIN_PATH} \
     -DANDROID_SDK_BUILD_TOOLS_REVISION=${ANDROID_SDK_BUILD_TOOLS_REVISION} \
@@ -104,11 +109,69 @@ cmake -S ${CODE_DIR}/tensorflow/lite \
     -DANDROID_PLATFORM=${ANDROID_PLATFORM} \
     -DCMAKE_BUILD_TYPE=Release
 
+# Do the build
 cmake --build . -j$(nproc)
 
-export TFLITE_LIB_DIR=${BUILD_DIR}/libtensorflow-lite.a
 
-if [ ! -f ${TFLITE_LIB_DIR} ]; then
+# Create output directory structure
+cd ${OUTPUT_DIR}
+
+mkdir -p include
+mkdir -p include/tensorflow/lite
+mkdir -p include/flatbuffers
+mkdir -p lib
+mkdir -p include/tensorflow/lite/c
+mkdir -p include/tensorflow/lite/core
+mkdir -p include/tensorflow/lite/experimental
+mkdir -p include/tensorflow/lite/kernels
+mkdir -p include/tensorflow/lite/schema
+mkdir -p include/tensorflow/lite/tools
+mkdir -p include/tensorflow/lite/core/api
+
+# Copy headers and stuff
+cp -r ${BUILD_DIR}/flatbuffers/include/flatbuffers/* include/flatbuffers/.
+cp ${CODE_DIR}/tensorflow/lite/*.h include/tensorflow/lite/.
+cp ${CODE_DIR}/tensorflow/lite/*.h include/tensorflow/lite/.
+
+cp ${CODE_DIR}/tensorflow/lite/c/*.h include/tensorflow/lite/c/.
+cp ${CODE_DIR}/tensorflow/lite/core/*.h include/tensorflow/lite/core/.
+cp -r ${CODE_DIR}/tensorflow/lite/experimental/resource include/tensorflow/lite/experimental/.
+cp ${CODE_DIR}/tensorflow/lite/kernels/*.h include/tensorflow/lite/kernels/.
+cp ${CODE_DIR}/tensorflow/lite/schema/*.h include/tensorflow/lite/schema/.
+cp ${CODE_DIR}/tensorflow/lite/tools/*.h include/tensorflow/lite/tools/.
+cp ${CODE_DIR}/tensorflow/lite/core/api/*.h include/tensorflow/lite/core/api/.
+
+# Copy libraries
+cp ${BUILD_DIR}/libtensorflow-lite.a lib/.
+cp ${BUILD_DIR}/_deps/xnnpack-build/libXNNPACK.a lib/.
+cp ${BUILD_DIR}/_deps/flatbuffers-build/libflatbuffers.a lib/.
+cp ${BUILD_DIR}/_deps/abseil-cpp-build/absl/**/*.a lib/.
+cp ${BUILD_DIR}/cpuinfo/libcpuinfo.a lib/.
+cp ${BUILD_DIR}/_deps/fft2d-build/*.a lib/.
+cp ${BUILD_DIR}/pthreadpool/libpthreadpool.a lib/.
+cp ${BUILD_DIR}/_deps/ruy-build/libruy.a lib/.
+cp ${BUILD_DIR}/clog/libclog.a lib/.
+cp ${BUILD_DIR}/_deps/farmhash-build/libfarmhash.a lib/.
+
+# Create archive
+cd ${OUTPUT_DIR}/lib
+echo "create libtflite.a" > ${OUTPUT_DIR}/libtflite.mri
+echo "save" >> ${OUTPUT_DIR}/libtflite.mri
+AFILES=$(ls *.a)
+for f in ${AFILES}; do
+    echo "addlib ${f}" >> ${OUTPUT_DIR}/libtflite.mri
+done
+echo "end" >> ${OUTPUT_DIR}/libtflite.mri
+$AR -M < ${OUTPUT_DIR}/libtflite.mri
+if [ -f ${OUTPUT_DIR}/libtensorflow-lite.a ]; then
+    echo "Can't deal with libtensorflow-lite.a already existing"
+    exit 1
+fi
+mv libtflite.a ${OUTPUT_DIR}/libtensorflow-lite.a
+
+export TFLITE_LIB_DIR=${OUTPUT_DIR}
+
+if [ ! -f "${TFLITE_LIB_DIR}/libtensorflow-lite.a" ]; then
     echo "Could not find tflite library"
     echo "  Did the build fail?"
     exit 1

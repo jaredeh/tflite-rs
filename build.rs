@@ -168,7 +168,7 @@ fn prepare_tensorflow_library() {
         if !make.status().expect("failed to run make command").success() {
             panic!("Failed to build tensorflow");
         }
-        let out_path = PathBuf::from(env::current_dir().unwrap()).join("tmp").join("build");
+        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
         env::set_var("TFLITE_LIB_DIR", out_path)
     }
     #[cfg(not(feature = "build"))]
