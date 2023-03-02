@@ -161,6 +161,15 @@ fn prepare_tensorflow_library() {
         println!("cargo:rustc-link-search=native={}", out_dir);
         println!("cargo:rustc-link-lib=static=tensorflow-lite{}", binary_changing_features);
     }
+    #[cfg(feature = "androidbuild")]
+    {
+        println!("Building tflite for android");
+        let mut make = std::process::Command::new("./android_libbuild.sh");
+        if !make.status().expect("failed to run make command").success() {
+            panic!("Failed to build tensorflow");
+        }
+        env::set_var("TFLITE_LIB_DIR", "tmp/build/libtensorflow-lite.a")
+    }
     #[cfg(not(feature = "build"))]
     {
         let arch_var = format!("TFLITE_{}_LIB_DIR", arch.replace("-", "_").to_uppercase());
@@ -232,6 +241,10 @@ fn import_tflite_types() {
         .clang_arg("-x")
         .clang_arg("c++")
         .clang_arg("-std=c++11")
+        .clang_arg(env::var("ANDROID_CLANG_ARGS1").unwrap_or(String::from("")))
+        .clang_arg(env::var("ANDROID_CLANG_ARGS2").unwrap_or(String::from("")))
+        .clang_arg(env::var("ANDROID_CLANG_ARGS3").unwrap_or(String::from("")))
+        .clang_arg(env::var("ANDROID_CLANG_ARGS4").unwrap_or(String::from("")))
         // required to get cross compilation for aarch64 to work because of an issue in flatbuffers
         .clang_arg("-fms-extensions");
 
@@ -275,6 +288,10 @@ fn import_stl_types() {
         .clang_arg("-x")
         .clang_arg("c++")
         .clang_arg("-std=c++14")
+        .clang_arg(env::var("ANDROID_CLANG_ARGS1").unwrap_or(String::from("")))
+        .clang_arg(env::var("ANDROID_CLANG_ARGS2").unwrap_or(String::from("")))
+        .clang_arg(env::var("ANDROID_CLANG_ARGS3").unwrap_or(String::from("")))
+        .clang_arg(env::var("ANDROID_CLANG_ARGS4").unwrap_or(String::from("")))
         .clang_arg("-fms-extensions")
         .rustfmt_bindings(false)
         .generate()
