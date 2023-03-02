@@ -168,7 +168,8 @@ fn prepare_tensorflow_library() {
         if !make.status().expect("failed to run make command").success() {
             panic!("Failed to build tensorflow");
         }
-        env::set_var("TFLITE_LIB_DIR", "tmp/build/libtensorflow-lite.a")
+        let out_path = PathBuf::from(env::current_dir().unwrap()).join("tmp").join("build");
+        env::set_var("TFLITE_LIB_DIR", out_path)
     }
     #[cfg(not(feature = "build"))]
     {
@@ -184,12 +185,13 @@ fn prepare_tensorflow_library() {
         let static_dynamic = if Path::new(&lib_dir).join("libtensorflow-lite.a").exists() {
             "static"
         } else {
-            "dylib"
+            "dylib";
+            panic!("Unable to find libtensorflow-lite.a in {}", lib_dir)
         };
         println!("cargo:rustc-link-lib={}=tensorflow-lite", static_dynamic);
         println!("cargo:rerun-if-changed={}", lib_dir);
     }
-    println!("cargo:rustc-link-lib=dylib=pthread");
+    //println!("cargo:rustc-link-lib=dylib=pthread");
     println!("cargo:rustc-link-lib=dylib=dl");
 }
 
