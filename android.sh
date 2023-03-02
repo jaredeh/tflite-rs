@@ -14,6 +14,7 @@ if [ "$1" == "clean" ] ; then
     echo "Cleaning"
     rm -rf target/
     rm -rf tmp/
+    rm -f Cargo.lock
     exit 0
 elif [ "$1" == "build" ] ; then
     echo "Building for aarch64"
