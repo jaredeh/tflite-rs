@@ -164,8 +164,8 @@ done
 echo "end" >> ${OUTPUT_DIR}/libtflite.mri
 $AR -M < ${OUTPUT_DIR}/libtflite.mri
 if [ -f ${OUTPUT_DIR}/libtensorflow-lite.a ]; then
-    echo "Can't deal with libtensorflow-lite.a already existing"
-    exit 1
+    echo "Deleting old libtensorflow-lite.a"
+    rm ${OUTPUT_DIR}/libtensorflow-lite.a
 fi
 mv libtflite.a ${OUTPUT_DIR}/libtensorflow-lite.a
 
